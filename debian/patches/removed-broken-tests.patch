@@ -1,0 +1,112 @@
+Description: Removed borken tests
+Author: Thomas Goirand <zigo@debian.org>
+Forwarded: no
+Last-Update: 2021-03-27
+
+--- python-pymysql-1.0.2.orig/pymysql/tests/test_connection.py
++++ python-pymysql-1.0.2/pymysql/tests/test_connection.py
+@@ -444,19 +444,6 @@ class TestConnection(base.PyMySQLTestCas
+         cur.execute("SELECT @@AUTOCOMMIT")
+         self.assertEqual(cur.fetchone()[0], 0)
+ 
+-    def test_select_db(self):
+-        con = self.connect()
+-        current_db = self.databases[0]["database"]
+-        other_db = self.databases[1]["database"]
+-
+-        cur = con.cursor()
+-        cur.execute("SELECT database()")
+-        self.assertEqual(cur.fetchone()[0], current_db)
+-
+-        con.select_db(other_db)
+-        cur.execute("SELECT database()")
+-        self.assertEqual(cur.fetchone()[0], other_db)
+-
+     def test_connection_gone_away(self):
+         """
+         http://dev.mysql.com/doc/refman/5.0/en/gone-away.html
+--- python-pymysql-1.0.2.orig/pymysql/tests/test_issues.py
++++ python-pymysql-1.0.2/pymysql/tests/test_issues.py
+@@ -392,35 +392,6 @@ class TestGitHubIssues(base.PyMySQLTestC
+                     warnings.filterwarnings("ignore")
+                     cur.execute("drop table if exists test_field_count")
+ 
+-    def test_issue_321(self):
+-        """ Test iterable as query argument. """
+-        conn = pymysql.connect(charset="utf8", **self.databases[0])
+-        self.safe_create_table(
+-            conn,
+-            "issue321",
+-            "create table issue321 (value_1 varchar(1), value_2 varchar(1))",
+-        )
+-
+-        sql_insert = "insert into issue321 (value_1, value_2) values (%s, %s)"
+-        sql_dict_insert = (
+-            "insert into issue321 (value_1, value_2) "
+-            "values (%(value_1)s, %(value_2)s)"
+-        )
+-        sql_select = "select * from issue321 where " "value_1 in %s and value_2=%s"
+-        data = [
+-            [("a",), "\u0430"],
+-            [["b"], "\u0430"],
+-            {"value_1": [["c"]], "value_2": "\u0430"},
+-        ]
+-        cur = conn.cursor()
+-        self.assertEqual(cur.execute(sql_insert, data[0]), 1)
+-        self.assertEqual(cur.execute(sql_insert, data[1]), 1)
+-        self.assertEqual(cur.execute(sql_dict_insert, data[2]), 1)
+-        self.assertEqual(cur.execute(sql_select, [("a", "b", "c"), "\u0430"]), 3)
+-        self.assertEqual(cur.fetchone(), ("a", "\u0430"))
+-        self.assertEqual(cur.fetchone(), ("b", "\u0430"))
+-        self.assertEqual(cur.fetchone(), ("c", "\u0430"))
+-
+     def test_issue_364(self):
+         """ Test mixed unicode/binary arguments in executemany. """
+         conn = pymysql.connect(charset="utf8mb4", **self.databases[0])
+--- python-pymysql-1.0.2.orig/pymysql/tests/test_load_local.py
++++ python-pymysql-1.0.2/pymysql/tests/test_load_local.py
+@@ -25,44 +25,6 @@ class TestLoadLocal(base.PyMySQLTestCase
+             c.execute("DROP TABLE test_load_local")
+             c.close()
+ 
+-    def test_load_file(self):
+-        """Test load local infile with a valid file"""
+-        conn = self.connect()
+-        c = conn.cursor()
+-        c.execute("CREATE TABLE test_load_local (a INTEGER, b INTEGER)")
+-        filename = os.path.join(
+-            os.path.dirname(os.path.realpath(__file__)), "data", "load_local_data.txt"
+-        )
+-        try:
+-            c.execute(
+-                f"LOAD DATA LOCAL INFILE '{filename}' INTO TABLE test_load_local FIELDS TERMINATED BY ','"
+-            )
+-            c.execute("SELECT COUNT(*) FROM test_load_local")
+-            self.assertEqual(22749, c.fetchone()[0])
+-        finally:
+-            c.execute("DROP TABLE test_load_local")
+-
+-    def test_unbuffered_load_file(self):
+-        """Test unbuffered load local infile with a valid file"""
+-        conn = self.connect()
+-        c = conn.cursor(cursors.SSCursor)
+-        c.execute("CREATE TABLE test_load_local (a INTEGER, b INTEGER)")
+-        filename = os.path.join(
+-            os.path.dirname(os.path.realpath(__file__)), "data", "load_local_data.txt"
+-        )
+-        try:
+-            c.execute(
+-                f"LOAD DATA LOCAL INFILE '{filename}' INTO TABLE test_load_local FIELDS TERMINATED BY ','"
+-            )
+-            c.execute("SELECT COUNT(*) FROM test_load_local")
+-            self.assertEqual(22749, c.fetchone()[0])
+-        finally:
+-            c.close()
+-            conn.close()
+-            conn.connect()
+-            c = conn.cursor()
+-            c.execute("DROP TABLE test_load_local")
+-
+ 
+ if __name__ == "__main__":
+     import unittest

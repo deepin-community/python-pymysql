@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+UPSTREAM_GIT := https://github.com/PyMySQL/PyMySQL.git
+include /usr/share/openstack-pkg-tools/pkgos.make
+
+export PYBUILD_NAME=pymysql
+
+%:
+	dh $@ --with python3,sphinxdoc --buildsystem=pybuild
+
+override_dh_sphinxdoc:
+ifeq (,$(findstring nodocs, $(DEB_BUILD_OPTIONS)))
+	PYTHONPATH=. python3 -m sphinx -b html docs/source $(CURDIR)/debian/python-pymysql-doc/usr/share/doc/python-pymysql-doc/html
+	dh_sphinxdoc -O--buildsystem=python_distutils
+endif
+
+override_dh_auto_test:
+	PYBUILD_SYSTEM=custom PYBUILD_TEST_ARGS="debian/run_tests.sh {interpreter}" dh_auto_test
