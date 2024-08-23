@@ -1,3 +1,4 @@
 #0001-Disabling-not-working-unit-tests.patch
 0002-remove_intersphinx.patch
 removed-broken-tests.patch
+fix-cve-2024-36039.patch

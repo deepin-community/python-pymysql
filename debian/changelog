@@ -1,3 +1,9 @@
+python-pymysql (1.0.2-2deepin0.1+dp23u1) unstable; urgency=medium
+
+  * fix CVE-2024-36039.
+
+ -- kongxinglong <kongxinglong@uniontech.com>  Fri, 23 Aug 2024 09:55:07 +0800
+
 python-pymysql (1.0.2-2) unstable; urgency=medium
 
   * Upload to unstable.
