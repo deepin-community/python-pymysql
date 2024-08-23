@@ -1,4 +1,4 @@
-python-pymysql (1.0.2-2deepin0.1+dp23u1) unstable; urgency=medium
+python-pymysql (1.0.2-2deepin1) unstable; urgency=medium
 
   * fix CVE-2024-36039.
 
