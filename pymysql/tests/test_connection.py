@@ -1,6 +1,5 @@
 import datetime
 import ssl
-import sys
 import pytest
 import time
 from unittest import mock
@@ -29,7 +28,7 @@ class TempUser:
             # already exists - TODO need to check the same plugin applies
             self._created = False
         try:
-            c.execute("GRANT SELECT ON %s.* TO %s" % (db, user))
+            c.execute(f"GRANT SELECT ON {db}.* TO {user}")
             self._grant = True
         except pymysql.err.InternalError:
             self._grant = False
@@ -39,13 +38,12 @@ class TempUser:
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self._grant:
-            self._c.execute("REVOKE SELECT ON %s.* FROM %s" % (self._db, self._user))
+            self._c.execute(f"REVOKE SELECT ON {self._db}.* FROM {self._user}")
         if self._created:
             self._c.execute("DROP USER %s" % self._user)
 
 
 class TestAuthentication(base.PyMySQLTestCase):
-
     socket_auth = False
     socket_found = False
     two_questions_found = False
@@ -53,6 +51,7 @@ class TestAuthentication(base.PyMySQLTestCase):
     pam_found = False
     mysql_old_password_found = False
     sha256_password_found = False
+    ed25519_found = False
 
     import os
 
@@ -97,13 +96,13 @@ class TestAuthentication(base.PyMySQLTestCase):
             mysql_old_password_found = True
         elif r[0] == "sha256_password":
             sha256_password_found = True
+        elif r[0] == "ed25519":
+            ed25519_found = True
         # else:
         #    print("plugin: %r" % r[0])
 
     def test_plugin(self):
         conn = self.connect()
-        if not self.mysql_server_is(conn, (5, 5, 0)):
-            pytest.skip("MySQL-5.5 required for plugins")
         cur = conn.cursor()
         cur.execute(
             "select plugin from mysql.user where concat(user, '@', host)=current_user()"
@@ -145,8 +144,8 @@ class TestAuthentication(base.PyMySQLTestCase):
             TestAuthentication.osuser + "@localhost",
             self.databases[0]["database"],
             self.socket_plugin_name,
-        ) as u:
-            c = pymysql.connect(user=TestAuthentication.osuser, **self.db)
+        ):
+            pymysql.connect(user=TestAuthentication.osuser, **self.db)
 
     class Dialog:
         fail = False
@@ -168,7 +167,7 @@ class TestAuthentication(base.PyMySQLTestCase):
         def authenticate(self, pkt):
             while True:
                 flag = pkt.read_uint8()
-                echo = (flag & 0x06) == 0x02
+                # echo = (flag & 0x06) == 0x02
                 last = (flag & 0x01) == 0x01
                 prompt = pkt.read_all()
 
@@ -220,13 +219,13 @@ class TestAuthentication(base.PyMySQLTestCase):
             self.databases[0]["database"],
             "two_questions",
             "notverysecret",
-        ) as u:
+        ):
             with self.assertRaises(pymysql.err.OperationalError):
                 pymysql.connect(user="pymysql_2q", **self.db)
             pymysql.connect(
                 user="pymysql_2q",
                 auth_plugin_map={b"dialog": TestAuthentication.Dialog},
-                **self.db
+                **self.db,
             )
 
     @pytest.mark.skipif(not socket_auth, reason="connection to unix_socket required")
@@ -262,16 +261,16 @@ class TestAuthentication(base.PyMySQLTestCase):
             self.databases[0]["database"],
             "three_attempts",
             "stillnotverysecret",
-        ) as u:
+        ):
             pymysql.connect(
                 user="pymysql_3a",
                 auth_plugin_map={b"dialog": TestAuthentication.Dialog},
-                **self.db
+                **self.db,
             )
             pymysql.connect(
                 user="pymysql_3a",
                 auth_plugin_map={b"dialog": TestAuthentication.DialogHandler},
-                **self.db
+                **self.db,
             )
             with self.assertRaises(pymysql.err.OperationalError):
                 pymysql.connect(
@@ -282,27 +281,27 @@ class TestAuthentication(base.PyMySQLTestCase):
                 pymysql.connect(
                     user="pymysql_3a",
                     auth_plugin_map={b"dialog": TestAuthentication.DefectiveHandler},
-                    **self.db
+                    **self.db,
                 )
             with self.assertRaises(pymysql.err.OperationalError):
                 pymysql.connect(
                     user="pymysql_3a",
                     auth_plugin_map={b"notdialogplugin": TestAuthentication.Dialog},
-                    **self.db
+                    **self.db,
                 )
             TestAuthentication.Dialog.m = {b"Password, please:": b"I do not know"}
             with self.assertRaises(pymysql.err.OperationalError):
                 pymysql.connect(
                     user="pymysql_3a",
                     auth_plugin_map={b"dialog": TestAuthentication.Dialog},
-                    **self.db
+                    **self.db,
                 )
             TestAuthentication.Dialog.m = {b"Password, please:": None}
             with self.assertRaises(pymysql.err.OperationalError):
                 pymysql.connect(
                     user="pymysql_3a",
                     auth_plugin_map={b"dialog": TestAuthentication.Dialog},
-                    **self.db
+                    **self.db,
                 )
 
     @pytest.mark.skipif(not socket_auth, reason="connection to unix_socket required")
@@ -357,9 +356,9 @@ class TestAuthentication(base.PyMySQLTestCase):
             self.databases[0]["database"],
             "pam",
             os.environ.get("PAMSERVICE"),
-        ) as u:
+        ):
             try:
-                c = pymysql.connect(user=TestAuthentication.osuser, **db)
+                pymysql.connect(user=TestAuthentication.osuser, **db)
                 db["password"] = "very bad guess at password"
                 with self.assertRaises(pymysql.err.OperationalError):
                     pymysql.connect(
@@ -367,18 +366,19 @@ class TestAuthentication(base.PyMySQLTestCase):
                         auth_plugin_map={
                             b"mysql_cleartext_password": TestAuthentication.DefectiveHandler
                         },
-                        **self.db
+                        **self.db,
                     )
             except pymysql.OperationalError as e:
                 self.assertEqual(1045, e.args[0])
-                # we had 'bad guess at password' work with pam. Well at least we get a permission denied here
+                # we had 'bad guess at password' work with pam. Well at least we get
+                # a permission denied here
                 with self.assertRaises(pymysql.err.OperationalError):
                     pymysql.connect(
                         user=TestAuthentication.osuser,
                         auth_plugin_map={
                             b"mysql_cleartext_password": TestAuthentication.DefectiveHandler
                         },
-                        **self.db
+                        **self.db,
                     )
         if grants:
             # recreate the user
@@ -397,20 +397,44 @@ class TestAuthentication(base.PyMySQLTestCase):
             "pymysql_sha256@localhost",
             self.databases[0]["database"],
             "sha256_password",
-        ) as u:
-            if self.mysql_server_is(conn, (5, 7, 0)):
-                c.execute("SET PASSWORD FOR 'pymysql_sha256'@'localhost' ='Sh@256Pa33'")
-            else:
-                c.execute("SET old_passwords = 2")
-                c.execute(
-                    "SET PASSWORD FOR 'pymysql_sha256'@'localhost' = PASSWORD('Sh@256Pa33')"
-                )
+        ):
+            c.execute("SET PASSWORD FOR 'pymysql_sha256'@'localhost' ='Sh@256Pa33'")
             c.execute("FLUSH PRIVILEGES")
             db = self.db.copy()
             db["password"] = "Sh@256Pa33"
-            # Although SHA256 is supported, need the configuration of public key of the mysql server. Currently will get error by this test.
+            # Although SHA256 is supported, need the configuration of public key of
+            # the mysql server. Currently will get error by this test.
             with self.assertRaises(pymysql.err.OperationalError):
                 pymysql.connect(user="pymysql_sha256", **db)
+
+    @pytest.mark.skipif(not ed25519_found, reason="no ed25519 authention plugin")
+    def testAuthEd25519(self):
+        db = self.db.copy()
+        del db["password"]
+        conn = self.connect()
+        c = conn.cursor()
+        c.execute("select ed25519_password(''), ed25519_password('ed25519_password')")
+        for r in c:
+            empty_pass = r[0].decode("ascii")
+            non_empty_pass = r[1].decode("ascii")
+
+        with TempUser(
+            c,
+            "pymysql_ed25519",
+            self.databases[0]["database"],
+            "ed25519",
+            empty_pass,
+        ):
+            pymysql.connect(user="pymysql_ed25519", password="", **db)
+
+        with TempUser(
+            c,
+            "pymysql_ed25519",
+            self.databases[0]["database"],
+            "ed25519",
+            non_empty_pass,
+        ):
+            pymysql.connect(user="pymysql_ed25519", password="ed25519_password", **db)
 
 
 class TestConnection(base.PyMySQLTestCase):
@@ -418,7 +442,21 @@ class TestConnection(base.PyMySQLTestCase):
         """This test requires MySQL >= 5.5"""
         arg = self.databases[0].copy()
         arg["charset"] = "utf8mb4"
-        conn = pymysql.connect(**arg)
+        pymysql.connect(**arg)
+
+    def test_set_character_set(self):
+        con = self.connect()
+        cur = con.cursor()
+
+        con.set_character_set("latin1")
+        cur.execute("SELECT @@character_set_connection")
+        self.assertEqual(cur.fetchone(), ("latin1",))
+        self.assertEqual(con.encoding, "cp1252")
+
+        con.set_character_set("utf8mb4", "utf8mb4_general_ci")
+        cur.execute("SELECT @@character_set_connection, @@collation_connection")
+        self.assertEqual(cur.fetchone(), ("utf8mb4", "utf8mb4_general_ci"))
+        self.assertEqual(con.encoding, "utf8")
 
     def test_largedata(self):
         """Large query and response (>=16MB)"""
@@ -468,7 +506,7 @@ class TestConnection(base.PyMySQLTestCase):
         time.sleep(2)
         with self.assertRaises(pymysql.OperationalError) as cm:
             cur.execute("SELECT 1+1")
-        # error occures while reading, not writing because of socket buffer.
+        # error occurs while reading, not writing because of socket buffer.
         # self.assertEqual(cm.exception.args[0], 2006)
         self.assertIn(cm.exception.args[0], (2006, 2013))
 
@@ -521,9 +559,7 @@ class TestConnection(base.PyMySQLTestCase):
 
     def test_ssl_connect(self):
         dummy_ssl_context = mock.Mock(options=0)
-        with mock.patch(
-            "pymysql.connections.Connection.connect"
-        ) as connect, mock.patch(
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
             "pymysql.connections.ssl.create_default_context",
             new=mock.Mock(return_value=dummy_ssl_context),
         ) as create_default_context:
@@ -538,13 +574,15 @@ class TestConnection(base.PyMySQLTestCase):
             assert create_default_context.called
             assert dummy_ssl_context.check_hostname
             assert dummy_ssl_context.verify_mode == ssl.CERT_REQUIRED
-            dummy_ssl_context.load_cert_chain.assert_called_with("cert", keyfile="key")
+            dummy_ssl_context.load_cert_chain.assert_called_with(
+                "cert",
+                keyfile="key",
+                password=None,
+            )
             dummy_ssl_context.set_ciphers.assert_called_with("cipher")
 
         dummy_ssl_context = mock.Mock(options=0)
-        with mock.patch(
-            "pymysql.connections.Connection.connect"
-        ) as connect, mock.patch(
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
             "pymysql.connections.ssl.create_default_context",
             new=mock.Mock(return_value=dummy_ssl_context),
         ) as create_default_context:
@@ -558,13 +596,38 @@ class TestConnection(base.PyMySQLTestCase):
             assert create_default_context.called
             assert dummy_ssl_context.check_hostname
             assert dummy_ssl_context.verify_mode == ssl.CERT_REQUIRED
-            dummy_ssl_context.load_cert_chain.assert_called_with("cert", keyfile="key")
+            dummy_ssl_context.load_cert_chain.assert_called_with(
+                "cert",
+                keyfile="key",
+                password=None,
+            )
             dummy_ssl_context.set_ciphers.assert_not_called
 
         dummy_ssl_context = mock.Mock(options=0)
-        with mock.patch(
-            "pymysql.connections.Connection.connect"
-        ) as connect, mock.patch(
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
+            "pymysql.connections.ssl.create_default_context",
+            new=mock.Mock(return_value=dummy_ssl_context),
+        ) as create_default_context:
+            pymysql.connect(
+                ssl={
+                    "ca": "ca",
+                    "cert": "cert",
+                    "key": "key",
+                    "password": "password",
+                },
+            )
+            assert create_default_context.called
+            assert dummy_ssl_context.check_hostname
+            assert dummy_ssl_context.verify_mode == ssl.CERT_REQUIRED
+            dummy_ssl_context.load_cert_chain.assert_called_with(
+                "cert",
+                keyfile="key",
+                password="password",
+            )
+            dummy_ssl_context.set_ciphers.assert_not_called
+
+        dummy_ssl_context = mock.Mock(options=0)
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
             "pymysql.connections.ssl.create_default_context",
             new=mock.Mock(return_value=dummy_ssl_context),
         ) as create_default_context:
@@ -578,9 +641,7 @@ class TestConnection(base.PyMySQLTestCase):
             dummy_ssl_context.set_ciphers.assert_not_called
 
         dummy_ssl_context = mock.Mock(options=0)
-        with mock.patch(
-            "pymysql.connections.Connection.connect"
-        ) as connect, mock.patch(
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
             "pymysql.connections.ssl.create_default_context",
             new=mock.Mock(return_value=dummy_ssl_context),
         ) as create_default_context:
@@ -592,14 +653,16 @@ class TestConnection(base.PyMySQLTestCase):
             assert create_default_context.called
             assert not dummy_ssl_context.check_hostname
             assert dummy_ssl_context.verify_mode == ssl.CERT_NONE
-            dummy_ssl_context.load_cert_chain.assert_called_with("cert", keyfile="key")
+            dummy_ssl_context.load_cert_chain.assert_called_with(
+                "cert",
+                keyfile="key",
+                password=None,
+            )
             dummy_ssl_context.set_ciphers.assert_not_called
 
         for ssl_verify_cert in (True, "1", "yes", "true"):
             dummy_ssl_context = mock.Mock(options=0)
-            with mock.patch(
-                "pymysql.connections.Connection.connect"
-            ) as connect, mock.patch(
+            with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
                 "pymysql.connections.ssl.create_default_context",
                 new=mock.Mock(return_value=dummy_ssl_context),
             ) as create_default_context:
@@ -612,15 +675,15 @@ class TestConnection(base.PyMySQLTestCase):
                 assert not dummy_ssl_context.check_hostname
                 assert dummy_ssl_context.verify_mode == ssl.CERT_REQUIRED
                 dummy_ssl_context.load_cert_chain.assert_called_with(
-                    "cert", keyfile="key"
+                    "cert",
+                    keyfile="key",
+                    password=None,
                 )
                 dummy_ssl_context.set_ciphers.assert_not_called
 
         for ssl_verify_cert in (None, False, "0", "no", "false"):
             dummy_ssl_context = mock.Mock(options=0)
-            with mock.patch(
-                "pymysql.connections.Connection.connect"
-            ) as connect, mock.patch(
+            with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
                 "pymysql.connections.ssl.create_default_context",
                 new=mock.Mock(return_value=dummy_ssl_context),
             ) as create_default_context:
@@ -633,16 +696,16 @@ class TestConnection(base.PyMySQLTestCase):
                 assert not dummy_ssl_context.check_hostname
                 assert dummy_ssl_context.verify_mode == ssl.CERT_NONE
                 dummy_ssl_context.load_cert_chain.assert_called_with(
-                    "cert", keyfile="key"
+                    "cert",
+                    keyfile="key",
+                    password=None,
                 )
                 dummy_ssl_context.set_ciphers.assert_not_called
 
         for ssl_ca in ("ca", None):
             for ssl_verify_cert in ("foo", "bar", ""):
                 dummy_ssl_context = mock.Mock(options=0)
-                with mock.patch(
-                    "pymysql.connections.Connection.connect"
-                ) as connect, mock.patch(
+                with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
                     "pymysql.connections.ssl.create_default_context",
                     new=mock.Mock(return_value=dummy_ssl_context),
                 ) as create_default_context:
@@ -658,14 +721,14 @@ class TestConnection(base.PyMySQLTestCase):
                         ssl.CERT_REQUIRED if ssl_ca is not None else ssl.CERT_NONE
                     ), (ssl_ca, ssl_verify_cert)
                     dummy_ssl_context.load_cert_chain.assert_called_with(
-                        "cert", keyfile="key"
+                        "cert",
+                        keyfile="key",
+                        password=None,
                     )
                     dummy_ssl_context.set_ciphers.assert_not_called
 
         dummy_ssl_context = mock.Mock(options=0)
-        with mock.patch(
-            "pymysql.connections.Connection.connect"
-        ) as connect, mock.patch(
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
             "pymysql.connections.ssl.create_default_context",
             new=mock.Mock(return_value=dummy_ssl_context),
         ) as create_default_context:
@@ -678,13 +741,37 @@ class TestConnection(base.PyMySQLTestCase):
             assert create_default_context.called
             assert dummy_ssl_context.check_hostname
             assert dummy_ssl_context.verify_mode == ssl.CERT_NONE
-            dummy_ssl_context.load_cert_chain.assert_called_with("cert", keyfile="key")
+            dummy_ssl_context.load_cert_chain.assert_called_with(
+                "cert",
+                keyfile="key",
+                password=None,
+            )
             dummy_ssl_context.set_ciphers.assert_not_called
 
         dummy_ssl_context = mock.Mock(options=0)
-        with mock.patch(
-            "pymysql.connections.Connection.connect"
-        ) as connect, mock.patch(
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
+            "pymysql.connections.ssl.create_default_context",
+            new=mock.Mock(return_value=dummy_ssl_context),
+        ) as create_default_context:
+            pymysql.connect(
+                ssl_ca="ca",
+                ssl_cert="cert",
+                ssl_key="key",
+                ssl_key_password="password",
+                ssl_verify_identity=True,
+            )
+            assert create_default_context.called
+            assert dummy_ssl_context.check_hostname
+            assert dummy_ssl_context.verify_mode == ssl.CERT_NONE
+            dummy_ssl_context.load_cert_chain.assert_called_with(
+                "cert",
+                keyfile="key",
+                password="password",
+            )
+            dummy_ssl_context.set_ciphers.assert_not_called
+
+        dummy_ssl_context = mock.Mock(options=0)
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
             "pymysql.connections.ssl.create_default_context",
             new=mock.Mock(return_value=dummy_ssl_context),
         ) as create_default_context:
@@ -699,9 +786,7 @@ class TestConnection(base.PyMySQLTestCase):
             assert not create_default_context.called
 
         dummy_ssl_context = mock.Mock(options=0)
-        with mock.patch(
-            "pymysql.connections.Connection.connect"
-        ) as connect, mock.patch(
+        with mock.patch("pymysql.connections.Connection.connect"), mock.patch(
             "pymysql.connections.ssl.create_default_context",
             new=mock.Mock(return_value=dummy_ssl_context),
         ) as create_default_context:
@@ -739,21 +824,18 @@ class TestEscape(base.PyMySQLTestCase):
 
     def test_escape_builtin_encoders(self):
         con = self.connect()
-        cur = con.cursor()
 
         val = datetime.datetime(2012, 3, 4, 5, 6)
         self.assertEqual(con.escape(val, con.encoders), "'2012-03-04 05:06:00'")
 
     def test_escape_custom_object(self):
         con = self.connect()
-        cur = con.cursor()
 
         mapping = {Foo: escape_foo}
         self.assertEqual(con.escape(Foo(), mapping), "bar")
 
     def test_escape_fallback_encoder(self):
         con = self.connect()
-        cur = con.cursor()
 
         class Custom(str):
             pass
@@ -763,21 +845,21 @@ class TestEscape(base.PyMySQLTestCase):
 
     def test_escape_no_default(self):
         con = self.connect()
-        cur = con.cursor()
 
         self.assertRaises(TypeError, con.escape, 42, {})
 
-    def test_escape_dict_value(self):
+    def test_escape_dict_raise_typeerror(self):
+        """con.escape(dict) should raise TypeError"""
         con = self.connect()
-        cur = con.cursor()
 
         mapping = con.encoders.copy()
         mapping[Foo] = escape_foo
-        self.assertEqual(con.escape({"foo": Foo()}, mapping), {"foo": "bar"})
+        #self.assertEqual(con.escape({"foo": Foo()}, mapping), {"foo": "bar"})
+        with self.assertRaises(TypeError):
+            con.escape({"foo": Foo()})
 
     def test_escape_list_item(self):
         con = self.connect()
-        cur = con.cursor()
 
         mapping = con.encoders.copy()
         mapping[Foo] = escape_foo

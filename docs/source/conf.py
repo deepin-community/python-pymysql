@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # PyMySQL documentation build configuration file, created by
 # sphinx-quickstart on Tue May 17 12:01:11 2016.
 #
@@ -30,7 +28,6 @@ sys.path.insert(0, os.path.abspath("../../"))
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.intersphinx",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -46,8 +43,8 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"PyMySQL"
-copyright = u"2016, Yutaka Matsubara and GitHub contributors"
+project = "PyMySQL"
+copyright = "2023, Inada Naoki and GitHub contributors"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -101,7 +98,7 @@ pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "default"
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -200,8 +197,8 @@ latex_documents = [
     (
         "index",
         "PyMySQL.tex",
-        u"PyMySQL Documentation",
-        u"Yutaka Matsubara and GitHub contributors",
+        "PyMySQL Documentation",
+        "Yutaka Matsubara and GitHub contributors",
         "manual",
     ),
 ]
@@ -235,8 +232,8 @@ man_pages = [
     (
         "index",
         "pymysql",
-        u"PyMySQL Documentation",
-        [u"Yutaka Matsubara and GitHub contributors"],
+        "PyMySQL Documentation",
+        ["Yutaka Matsubara and GitHub contributors"],
         1,
     )
 ]
@@ -254,8 +251,8 @@ texinfo_documents = [
     (
         "index",
         "PyMySQL",
-        u"PyMySQL Documentation",
-        u"Yutaka Matsubara and GitHub contributors",
+        "PyMySQL Documentation",
+        "Yutaka Matsubara and GitHub contributors",
         "PyMySQL",
         "One line description of project.",
         "Miscellaneous",

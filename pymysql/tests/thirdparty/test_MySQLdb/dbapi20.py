@@ -51,9 +51,9 @@ import unittest
 # - Now a subclass of TestCase, to avoid requiring the driver stub
 #   to use multiple inheritance
 # - Reversed the polarity of buggy test in test_description
-# - Test exception heirarchy correctly
+# - Test exception hierarchy correctly
 # - self.populate is now self._populate(), so if a driver stub
-#   overrides self.ddl1 this change propogates
+#   overrides self.ddl1 this change propagates
 # - VARCHAR columns now have a width, which will hopefully make the
 #   DDL even more portible (this will be reversed if it causes more problems)
 # - cursor.rowcount being checked after various execute and fetchXXX methods
@@ -174,7 +174,7 @@ class DatabaseAPI20Test(unittest.TestCase):
 
     def test_Exceptions(self):
         # Make sure required exceptions exist, and are in the
-        # defined heirarchy.
+        # defined hierarchy.
         self.assertTrue(issubclass(self.driver.Warning, Exception))
         self.assertTrue(issubclass(self.driver.Error, Exception))
         self.assertTrue(issubclass(self.driver.InterfaceError, self.driver.Error))
@@ -225,7 +225,7 @@ class DatabaseAPI20Test(unittest.TestCase):
     def test_cursor(self):
         con = self._connect()
         try:
-            cur = con.cursor()
+            con.cursor()
         finally:
             con.close()
 
@@ -299,7 +299,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             self.assertEqual(
                 cur.rowcount,
                 -1,
-                "cursor.rowcount should be -1 after executing no-result " "statements",
+                "cursor.rowcount should be -1 after executing no-result statements",
             )
             cur.execute(
                 "insert into %sbooze values ('Victoria Bitter')" % (self.table_prefix)
@@ -409,12 +409,12 @@ class DatabaseAPI20Test(unittest.TestCase):
         self.assertEqual(
             beers[0],
             "Cooper's",
-            "cursor.fetchall retrieved incorrect data, or data inserted " "incorrectly",
+            "cursor.fetchall retrieved incorrect data, or data inserted incorrectly",
         )
         self.assertEqual(
             beers[1],
             "Victoria Bitter",
-            "cursor.fetchall retrieved incorrect data, or data inserted " "incorrectly",
+            "cursor.fetchall retrieved incorrect data, or data inserted incorrectly",
         )
 
     def test_executemany(self):
@@ -474,7 +474,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             self.assertRaises(self.driver.Error, cur.fetchone)
 
             # cursor.fetchone should raise an Error if called after
-            # executing a query that cannnot return rows
+            # executing a query that cannot return rows
             self.executeDDL1(cur)
             self.assertRaises(self.driver.Error, cur.fetchone)
 
@@ -482,12 +482,12 @@ class DatabaseAPI20Test(unittest.TestCase):
             self.assertEqual(
                 cur.fetchone(),
                 None,
-                "cursor.fetchone should return None if a query retrieves " "no rows",
+                "cursor.fetchone should return None if a query retrieves no rows",
             )
             self.assertTrue(cur.rowcount in (-1, 0))
 
             # cursor.fetchone should raise an Error if called after
-            # executing a query that cannnot return rows
+            # executing a query that cannot return rows
             cur.execute(
                 "insert into %sbooze values ('Victoria Bitter')" % (self.table_prefix)
             )
@@ -792,7 +792,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             con.close()
 
     def test_setoutputsize(self):
-        # Real test for setoutputsize is driver dependant
+        # Real test for setoutputsize is driver dependent
         raise NotImplementedError("Driver need to override this test")
 
     def test_None(self):
@@ -810,28 +810,26 @@ class DatabaseAPI20Test(unittest.TestCase):
             con.close()
 
     def test_Date(self):
-        d1 = self.driver.Date(2002, 12, 25)
-        d2 = self.driver.DateFromTicks(time.mktime((2002, 12, 25, 0, 0, 0, 0, 0, 0)))
+        self.driver.Date(2002, 12, 25)
+        self.driver.DateFromTicks(time.mktime((2002, 12, 25, 0, 0, 0, 0, 0, 0)))
         # Can we assume this? API doesn't specify, but it seems implied
         # self.assertEqual(str(d1),str(d2))
 
     def test_Time(self):
-        t1 = self.driver.Time(13, 45, 30)
-        t2 = self.driver.TimeFromTicks(time.mktime((2001, 1, 1, 13, 45, 30, 0, 0, 0)))
+        self.driver.Time(13, 45, 30)
+        self.driver.TimeFromTicks(time.mktime((2001, 1, 1, 13, 45, 30, 0, 0, 0)))
         # Can we assume this? API doesn't specify, but it seems implied
         # self.assertEqual(str(t1),str(t2))
 
     def test_Timestamp(self):
-        t1 = self.driver.Timestamp(2002, 12, 25, 13, 45, 30)
-        t2 = self.driver.TimestampFromTicks(
-            time.mktime((2002, 12, 25, 13, 45, 30, 0, 0, 0))
-        )
+        self.driver.Timestamp(2002, 12, 25, 13, 45, 30)
+        self.driver.TimestampFromTicks(time.mktime((2002, 12, 25, 13, 45, 30, 0, 0, 0)))
         # Can we assume this? API doesn't specify, but it seems implied
         # self.assertEqual(str(t1),str(t2))
 
     def test_Binary(self):
-        b = self.driver.Binary(b"Something")
-        b = self.driver.Binary(b"")
+        self.driver.Binary(b"Something")
+        self.driver.Binary(b"")
 
     def test_STRING(self):
         self.assertTrue(hasattr(self.driver, "STRING"), "module.STRING must be defined")
