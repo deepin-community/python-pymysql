@@ -6,7 +6,6 @@ import pytest
 
 import pymysql.cursors
 from pymysql.tests import base
-from pymysql.err import ProgrammingError
 
 
 __all__ = ["TestConversion", "TestCursor", "TestBulkInserts"]
@@ -14,11 +13,26 @@ __all__ = ["TestConversion", "TestCursor", "TestBulkInserts"]
 
 class TestConversion(base.PyMySQLTestCase):
     def test_datatypes(self):
-        """ test every data type """
+        """test every data type"""
         conn = self.connect()
         c = conn.cursor()
         c.execute(
-            "create table test_datatypes (b bit, i int, l bigint, f real, s varchar(32), u varchar(32), bb blob, d date, dt datetime, ts timestamp, td time, t time, st datetime)"
+            """
+create table test_datatypes (
+    b bit,
+    i int,
+    l bigint,
+    f real,
+    s varchar(32),
+    u varchar(32),
+    bb blob,
+    d date,
+    dt datetime,
+    ts timestamp,
+    td time,
+    t time,
+    st datetime)
+"""
         )
         try:
             # insert values
@@ -38,7 +52,8 @@ class TestConversion(base.PyMySQLTestCase):
                 time.localtime(),
             )
             c.execute(
-                "insert into test_datatypes (b,i,l,f,s,u,bb,d,dt,td,t,st) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "insert into test_datatypes (b,i,l,f,s,u,bb,d,dt,td,t,st) values"
+                " (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 v,
             )
             c.execute("select b,i,l,f,s,u,bb,d,dt,td,t,st from test_datatypes")
@@ -54,7 +69,8 @@ class TestConversion(base.PyMySQLTestCase):
 
             # check nulls
             c.execute(
-                "insert into test_datatypes (b,i,l,f,s,u,bb,d,dt,td,t,st) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "insert into test_datatypes (b,i,l,f,s,u,bb,d,dt,td,t,st)"
+                " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 [None] * 12,
             )
             c.execute("select b,i,l,f,s,u,bb,d,dt,td,t,st from test_datatypes")
@@ -80,7 +96,7 @@ class TestConversion(base.PyMySQLTestCase):
             c.execute("drop table test_datatypes")
 
     def test_dict(self):
-        """ test dict escaping """
+        """test dict escaping"""
         conn = self.connect()
         c = conn.cursor()
         c.execute("create table test_dict (a integer, b integer, c integer)")
@@ -143,7 +159,7 @@ class TestConversion(base.PyMySQLTestCase):
             self.assertEqual(data, c.fetchone()[0])
 
     def test_untyped(self):
-        """ test conversion of null, empty string """
+        """test conversion of null, empty string"""
         conn = self.connect()
         c = conn.cursor()
         c.execute("select null,''")
@@ -152,11 +168,12 @@ class TestConversion(base.PyMySQLTestCase):
         self.assertEqual(("", None), c.fetchone())
 
     def test_timedelta(self):
-        """ test timedelta conversion """
+        """test timedelta conversion"""
         conn = self.connect()
         c = conn.cursor()
         c.execute(
-            "select time('12:30'), time('23:12:59'), time('23:12:59.05100'), time('-12:30'), time('-23:12:59'), time('-23:12:59.05100'), time('-00:30')"
+            "select time('12:30'), time('23:12:59'), time('23:12:59.05100'),"
+            + " time('-12:30'), time('-23:12:59'), time('-23:12:59.05100'), time('-00:30')"
         )
         self.assertEqual(
             (
@@ -172,11 +189,9 @@ class TestConversion(base.PyMySQLTestCase):
         )
 
     def test_datetime_microseconds(self):
-        """ test datetime conversion w microseconds"""
+        """test datetime conversion w microseconds"""
 
         conn = self.connect()
-        if not self.mysql_server_is(conn, (5, 6, 4)):
-            pytest.skip("target backend does not support microseconds")
         c = conn.cursor()
         dt = datetime.datetime(2013, 11, 12, 9, 9, 9, 123450)
         c.execute("create table test_datetime (id int, ts datetime(6))")
@@ -243,7 +258,7 @@ class TestCursor(base.PyMySQLTestCase):
     #    self.assertEqual(r, c.description)
 
     def test_fetch_no_result(self):
-        """ test a fetchone() with no rows """
+        """test a fetchone() with no rows"""
         conn = self.connect()
         c = conn.cursor()
         c.execute("create table test_nr (b varchar(32))")
@@ -255,7 +270,7 @@ class TestCursor(base.PyMySQLTestCase):
             c.execute("drop table test_nr")
 
     def test_aggregates(self):
-        """ test aggregate functions """
+        """test aggregate functions"""
         conn = self.connect()
         c = conn.cursor()
         try:
@@ -269,7 +284,7 @@ class TestCursor(base.PyMySQLTestCase):
             c.execute("drop table test_aggregates")
 
     def test_single_tuple(self):
-        """ test a single tuple """
+        """test a single tuple"""
         conn = self.connect()
         c = conn.cursor()
         self.safe_create_table(
@@ -285,8 +300,10 @@ class TestCursor(base.PyMySQLTestCase):
         args = self.databases[0].copy()
         args["charset"] = "utf8mb4"
         conn = pymysql.connect(**args)
+        # MariaDB only has limited JSON support, stores data as longtext
+        # https://mariadb.com/kb/en/json-data-type/
         if not self.mysql_server_is(conn, (5, 7, 0)):
-            pytest.skip("JSON type is not supported on MySQL <= 5.6")
+            pytest.skip("JSON type is only supported on MySQL >= 5.7")
 
         self.safe_create_table(
             conn,
@@ -306,21 +323,20 @@ create table test_json (
         res = cur.fetchone()[0]
         self.assertEqual(json.loads(res), json.loads(json_str))
 
-        cur.execute("SELECT CAST(%s AS JSON) AS x", (json_str,))
-        res = cur.fetchone()[0]
-        self.assertEqual(json.loads(res), json.loads(json_str))
+        if self.get_mysql_vendor(conn) == "mysql":
+            cur.execute("SELECT CAST(%s AS JSON) AS x", (json_str,))
+            res = cur.fetchone()[0]
+            self.assertEqual(json.loads(res), json.loads(json_str))
 
 
 class TestBulkInserts(base.PyMySQLTestCase):
-
     cursor_type = pymysql.cursors.DictCursor
 
     def setUp(self):
-        super(TestBulkInserts, self).setUp()
+        super().setUp()
         self.conn = conn = self.connect()
-        c = conn.cursor(self.cursor_type)
 
-        # create a table ane some data to query
+        # create a table and some data to query
         self.safe_create_table(
             conn,
             "bulkinsert",
@@ -349,11 +365,11 @@ PRIMARY KEY (id)
 
         data = [(0, "bob", 21, 123), (1, "jim", 56, 45), (2, "fred", 100, 180)]
         cursor.executemany(
-            "insert into bulkinsert (id, name, age, height) " "values (%s,%s,%s,%s)",
+            "insert into bulkinsert (id, name, age, height) values (%s,%s,%s,%s)",
             data,
         )
         self.assertEqual(
-            cursor._last_executed,
+            cursor._executed,
             bytearray(
                 b"insert into bulkinsert (id, name, age, height) values "
                 b"(0,'bob',21,123),(1,'jim',56,45),(2,'fred',100,180)"
@@ -377,7 +393,7 @@ values (%s,
             data,
         )
         self.assertEqual(
-            cursor._last_executed.strip(),
+            cursor._executed.strip(),
             bytearray(
                 b"""insert
 into bulkinsert (id, name,
@@ -399,14 +415,14 @@ values (0,
         cursor = conn.cursor()
         data = [(0, "bob", 21, 123)]
         cursor.executemany(
-            "insert into bulkinsert (id, name, age, height) " "values (%s,%s,%s,%s)",
+            "insert into bulkinsert (id, name, age, height) values (%s,%s,%s,%s)",
             data,
         )
         cursor.execute("commit")
         self._verify_records(data)
 
     def test_issue_288(self):
-        """executemany should work with "insert ... on update" """
+        """executemany should work with "insert ... on update"""
         conn = self.connect()
         cursor = conn.cursor()
         data = [(0, "bob", 21, 123), (1, "jim", 56, 45), (2, "fred", 100, 180)]
@@ -422,7 +438,7 @@ age = values(age)
             data,
         )
         self.assertEqual(
-            cursor._last_executed.strip(),
+            cursor._executed.strip(),
             bytearray(
                 b"""insert
 into bulkinsert (id, name,

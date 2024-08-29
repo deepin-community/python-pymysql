@@ -74,7 +74,7 @@ echo "[
 {\"unix_socket\": \"${MYTEMP_DIR}/mysql.sock\", \"user\": \"root\", \"passwd\": \"\", \"db\": \"test_pymysql2\", \"client_flag\": $MULTI_STATEMENTS }
 ]" >pymysql/tests/databases.json
 
-if PYTHONPATH=. PYTHON=$1 $1 -m pytest -v pymysql ; then
+if PYTHONPATH=. PYTHON=$1 $1 -m pytest -v pymysql -k "not test_load_warnings" ; then
 	SUCCESS=0
 	echo "Yeah, ran unit tests..."
 else

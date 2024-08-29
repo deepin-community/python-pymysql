@@ -8,6 +8,7 @@ Build-Depends:
  debhelper-compat (= 11),
  dh-python,
  openstack-pkg-tools,
+ pybuild-plugin-pyproject,
  python3-all,
  python3-cryptography,
  python3-pytest,
@@ -15,7 +16,7 @@ Build-Depends:
  python3-sphinx,
 Build-Depends-Indep:
  default-mysql-server,
- python3-unittest2,
+ python3-sphinx-rtd-theme,
 Standards-Version: 4.4.1
 Vcs-Browser: https://salsa.debian.org/openstack-team/python/python-pymysql
 Vcs-Git: https://salsa.debian.org/openstack-team/python/python-pymysql.git

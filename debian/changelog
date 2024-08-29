@@ -1,14 +1,24 @@
-python-pymysql (1.0.2-2deepin1) unstable; urgency=medium
+python-pymysql (1.1.1-1) unstable; urgency=high
 
-  * fix CVE-2024-36039.
+  * New upstream release:
+    - Fixes CVE-2024-36039 (SQL injection if used with untrusted JSON input
+      because keys are not escaped by escape_dict) (Closes: #1071628).
+  * Removed 0002-remove_intersphinx.patch now useless.
+  * Rebased removed-broken-tests.patch.
+  * Added python3-sphinx-rtd-theme as build-depends.
 
- -- kongxinglong <kongxinglong@uniontech.com>  Fri, 23 Aug 2024 09:55:07 +0800
+ -- Thomas Goirand <zigo@debian.org>  Tue, 28 May 2024 08:18:40 +0200
 
-python-pymysql (1.0.2-2) unstable; urgency=medium
+python-pymysql (1.1.0-1) unstable; urgency=medium
 
-  * Upload to unstable.
+  * New upstream release.
+  * Add build-depends on pybuild-plugin-pyproject.
+  * Rebased removed-broken-tests.patch.
+  * Removed build-depends on python3-unittest2 (Closes: #1060637).
+  * Blacklist test_load_warnings() that doesn't work with Debian default
+    mariadb config.
 
- -- Thomas Goirand <zigo@debian.org>  Mon, 16 Aug 2021 22:09:05 +0200
+ -- Thomas Goirand <zigo@debian.org>  Mon, 11 Mar 2024 08:57:43 +0100
 
 python-pymysql (1.0.2-1) experimental; urgency=medium
 

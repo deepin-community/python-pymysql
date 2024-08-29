@@ -2,8 +2,6 @@ from . import dbapi20
 import pymysql
 from pymysql.tests import base
 
-import unittest
-
 
 class test_MySQLdb(dbapi20.DatabaseAPI20Test):
     driver = pymysql
@@ -21,9 +19,6 @@ class test_MySQLdb(dbapi20.DatabaseAPI20Test):
         pass
 
     def test_setoutputsize_basic(self):
-        pass
-
-    def test_nextset(self):
         pass
 
     """The tests on fetchone and fetchall and rowcount bogusly
@@ -95,7 +90,7 @@ class test_MySQLdb(dbapi20.DatabaseAPI20Test):
             self.assertRaises(self.driver.Error, cur.fetchone)
 
             # cursor.fetchone should raise an Error if called after
-            # executing a query that cannnot return rows
+            # executing a query that cannot return rows
             self.executeDDL1(cur)
             ##             self.assertRaises(self.driver.Error,cur.fetchone)
 
@@ -103,12 +98,12 @@ class test_MySQLdb(dbapi20.DatabaseAPI20Test):
             self.assertEqual(
                 cur.fetchone(),
                 None,
-                "cursor.fetchone should return None if a query retrieves " "no rows",
+                "cursor.fetchone should return None if a query retrieves no rows",
             )
             self.assertTrue(cur.rowcount in (-1, 0))
 
             # cursor.fetchone should raise an Error if called after
-            # executing a query that cannnot return rows
+            # executing a query that cannot return rows
             cur.execute(
                 "insert into %sbooze values ('Victoria Bitter')" % (self.table_prefix)
             )
@@ -184,8 +179,6 @@ class test_MySQLdb(dbapi20.DatabaseAPI20Test):
         cur.execute("drop procedure deleteme")
 
     def test_nextset(self):
-        from warnings import warn
-
         con = self._connect()
         try:
             cur = con.cursor()
